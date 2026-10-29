@@ -108,3 +108,13 @@ class OrderStatusUpdate(BaseModel):
 class UserLogin(BaseModel):
     email: str
     password: str
+
+class CustomerAnalyticsResponse(BaseModel):
+    id: int
+    email: EmailStr
+    total_orders: int
+    total_spent: float
+    has_ordered_before: bool
+
+    class Config:
+        from_attributes = True
