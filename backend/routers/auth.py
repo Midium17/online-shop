@@ -51,22 +51,29 @@ def get_customers_analytics(
     db: Session = Depends(get_db),
     admin: models.UserModel = Depends(get_current_admin_user)
 ):
-    # Fetch all non-admin customer accounts
     users = db.query(models.UserModel).filter(models.UserModel.is_admin == False).all()
     customer_data = []
 
     for user in users:
-        # Aggregate orders associated with customer email
         orders = db.query(models.OrderModel).filter(models.OrderModel.customer_email == user.email).all()
         total_spent = sum(o.total_amount for o in orders if o.total_amount)
         order_count = len(orders)
+        
+        # Grab details from the latest order if available
+        latest_order = orders[-1] if orders else None
 
         customer_data.append({
             "id": user.id,
             "email": user.email,
             "total_orders": order_count,
             "total_spent": total_spent,
-            "has_ordered_before": order_count > 0
+            "has_ordered_before": order_count > 0,
+            "first_name": latest_order.first_name if latest_order else "N/A",
+            "last_name": latest_order.last_name if latest_order else "",
+            "phone": latest_order.phone if latest_order else "N/A",
+            "address": latest_order.address if latest_order else "N/A",
+            "city": latest_order.city if latest_order else "N/A",
+            "country": latest_order.country if latest_order else "N/A",
         })
 
     return customer_data
