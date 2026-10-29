@@ -14,27 +14,36 @@ router = APIRouter(
 )
 
 # IMAGE UPLOAD ENDPOINT (Protected: Admin only)
-@router.post("/upload-image/", status_code=status.HTTP_201_CREATED)
-async def upload_product_image(
-    file: UploadFile = File(...),
-    current_user: models.UserModel = Depends(get_current_admin_user)
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from typing import List, Union
+import shutil
+import os
+
+router = APIRouter(prefix="/products", tags=["Products"])
+
+UPLOAD_DIR = "static/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@router.post("/upload-image/")
+def upload_images(
+    files: Union[List[UploadFile], UploadFile] = File(...),
+    admin: models.UserModel = Depends(get_current_admin_user)
 ):
-    # Validate file type
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image.")
+    # Ensure it's treated as a list even if a single file is uploaded
+    if not isinstance(files, list):
+        files = [files]
 
-    # Generate a unique filename using UUID to prevent naming collisions
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = os.path.join("static/uploads", unique_filename)
-
-    # Save file to disk
-    with open(file_path, "wb") as buffer:
-        buffer.write(await file.read())
-
-    # Return full static URL for the image
-    image_url = f"http://127.0.0.1:8000/static/uploads/{unique_filename}"
-    return {"image_url": image_url}
+    uploaded_urls = []
+    for file in files:
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        uploaded_urls.append(f"http://127.0.0.1:8000/{file_path}")
+    
+    return {
+        "image_url": uploaded_urls[0] if uploaded_urls else "",
+        "image_urls": uploaded_urls
+    }
 
 # ... keep existing create_product, get_products, get_product, delete_product routes below
 
