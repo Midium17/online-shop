@@ -30,6 +30,7 @@ export default function Admin() {
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [editingProductId, setEditingProductId] = useState(null);
 
   // Form States
   const [newProduct, setNewProduct] = useState({
@@ -149,6 +150,50 @@ export default function Admin() {
     }
   };
 
+  ;
+
+// Triggered when clicking "Edit" on a product card
+const handleStartEdit = (product) => {
+  setEditingProductId(product.id);
+  setNewProduct({
+    title: product.title,
+    description: product.description || '',
+    price: product.price,
+    stock: product.stock,
+    image_url: product.image_url || '',
+    category_id: product.category_id || '',
+  });
+  setImagePreview(product.image_url || null);
+};
+
+// Cancel editing mode
+const handleCancelEdit = () => {
+  setEditingProductId(null);
+  setNewProduct({ title: '', description: '', price: '', stock: '', image_url: '', category_id: '' });
+  setImagePreview(null);
+};
+
+// Submit product updates (PUT request)
+const handleUpdateProduct = async (e) => {
+  e.preventDefault();
+  setError('');
+  setSuccess('');
+
+  try {
+    await api.put(`/products/${editingProductId}`, {
+      ...newProduct,
+      price: parseFloat(newProduct.price),
+      stock: parseInt(newProduct.stock),
+      category_id: newProduct.category_id ? parseInt(newProduct.category_id) : null,
+    });
+    setSuccess(`Product #${editingProductId} updated successfully!`);
+    handleCancelEdit();
+    fetchData();
+  } catch (err) {
+    setError(err.response?.data?.detail || 'Failed to update product.');
+  }
+};
+
   // Order Handlers
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     setError('');
@@ -161,7 +206,7 @@ export default function Admin() {
       setError('Failed to update order status.');
     }
   };
-
+  
   const filteredOrders = orders.filter((order) => {
     const matchesTab = orderFilter === 'ALL' || order.status.toUpperCase() === orderFilter.toUpperCase();
     const query = orderSearch.toLowerCase();
@@ -480,78 +525,165 @@ export default function Admin() {
           </div>
         )}
 
-        {/* ================= TAB 2: PRODUCTS MANAGEMENT ================= */}
-        {activeTab === 'products' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="bg-white p-6 rounded-2xl border shadow-2xs h-fit space-y-4">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Plus className="w-5 h-5 text-emerald-600" /> Create Product
-              </h2>
-              <form onSubmit={handleCreateProduct} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Title</label>
-                  <input type="text" required value={newProduct.title} onChange={(e) => setNewProduct({ ...newProduct, title: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Description</label>
-                  <textarea rows="2" value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Price ($)</label>
-                    <input type="number" step="0.01" required value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Stock</label>
-                    <input type="number" required value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Category</label>
-                  <select value={newProduct.category_id} onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })} className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
-                    <option value="">Select Category</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Product Image File</label>
-                  <div className="flex items-center gap-3">
-                    <label className="cursor-pointer flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl font-medium text-xs hover:bg-emerald-100 transition">
-                      <Upload className="w-4 h-4" />
-                      <span>{uploading ? 'Uploading...' : 'Choose File'}</span>
-                      <input type="file" accept="image/*" onChange={handleImageFileChange} className="hidden" />
-                    </label>
-                    {imagePreview && <img src={imagePreview} alt="Preview" className="w-10 h-10 object-cover rounded-xl border" />}
-                  </div>
-                </div>
-                <button type="submit" disabled={uploading} className="w-full bg-[#1A382B] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-900 transition">
-                  {uploading ? 'Uploading...' : 'Create Product'}
-                </button>
-              </form>
+        {/* ================= TAB 2: PRODUCTS MANAGEMENT (FULL CRUD) ================= */}
+{activeTab === 'products' && (
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    {/* Dynamic Form: Create or Edit Product */}
+    <div className="bg-white p-6 rounded-2xl border shadow-2xs h-fit space-y-4">
+      <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+        {editingProductId ? (
+          <>
+            <RefreshCw className="w-5 h-5 text-amber-600" /> Edit Product #{editingProductId}
+          </>
+        ) : (
+          <>
+            <Plus className="w-5 h-5 text-emerald-600" /> Create Product
+          </>
+        )}
+      </h2>
+
+      <form onSubmit={editingProductId ? handleUpdateProduct : handleCreateProduct} className="space-y-4">
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Title</label>
+          <input
+            type="text"
+            required
+            value={newProduct.title}
+            onChange={(e) => setNewProduct({ ...newProduct, title: e.target.value })}
+            className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Description</label>
+          <textarea
+            rows="2"
+            value={newProduct.description}
+            onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+            className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Price ($)</label>
+            <input
+              type="number"
+              step="0.01"
+              required
+              value={newProduct.price}
+              onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+              className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Stock</label>
+            <input
+              type="number"
+              required
+              value={newProduct.stock}
+              onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+              className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Category</label>
+          <select
+            value={newProduct.category_id}
+            onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}
+            className="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+          >
+            <option value="">Select Category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Product Image File</label>
+          <div className="flex items-center gap-3">
+            <label className="cursor-pointer flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl font-medium text-xs hover:bg-emerald-100 transition">
+              <Upload className="w-4 h-4" />
+              <span>{uploading ? 'Uploading...' : 'Choose File'}</span>
+              <input type="file" accept="image/*" onChange={handleImageFileChange} className="hidden" />
+            </label>
+            {imagePreview && <img src={imagePreview} alt="Preview" className="w-10 h-10 object-cover rounded-xl border" />}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={uploading}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition text-white ${
+              editingProductId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-[#1A382B] hover:bg-emerald-900'
+            }`}
+          >
+            {uploading ? 'Uploading...' : editingProductId ? 'Update Product' : 'Create Product'}
+          </button>
+
+          {editingProductId && (
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+
+    {/* Inventory List with Edit & Delete Triggers */}
+    <div className="lg:col-span-2 space-y-4">
+      <h2 className="text-lg font-bold text-gray-900">Store Inventory ({products.length})</h2>
+      
+      {products.length === 0 ? (
+        <div className="bg-white p-12 rounded-2xl border text-center text-gray-400">
+          <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="font-medium">No products in inventory.</p>
+        </div>
+      ) : (
+        products.map((product) => (
+          <div key={product.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex items-center justify-between shadow-2xs">
+            <div className="flex items-center gap-4">
+              <img
+                src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30'}
+                alt={product.title}
+                className="w-14 h-14 object-cover rounded-xl bg-gray-50 shrink-0"
+              />
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">{product.title}</h3>
+                <p className="text-xs text-emerald-700 font-extrabold">${product.price.toFixed(2)} | Stock: {product.stock}</p>
+              </div>
             </div>
 
-            <div className="lg:col-span-2 space-y-4">
-              <h2 className="text-lg font-bold text-gray-900">Store Inventory ({products.length})</h2>
-              {products.map((product) => (
-                <div key={product.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex items-center justify-between shadow-2xs">
-                  <div className="flex items-center gap-4">
-                    <img src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30'} alt={product.title} className="w-14 h-14 object-cover rounded-xl bg-gray-50" />
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-sm">{product.title}</h3>
-                      <p className="text-xs text-emerald-700 font-extrabold">${product.price.toFixed(2)} | Stock: {product.stock}</p>
-                    </div>
-                  </div>
-                  <button onClick={() => handleDeleteProduct(product.id)} className="text-gray-400 hover:text-red-600 p-2 transition">
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              ))}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleStartEdit(product)}
+                className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-xl text-xs font-semibold hover:bg-amber-100 transition"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => handleDeleteProduct(product.id)}
+                className="p-2 text-gray-400 hover:text-red-600 transition"
+                title="Delete Product"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
             </div>
           </div>
-        )}
-
+        ))
+      )}
+    </div>
+  </div>
+)}
         {/* ================= TAB 3: CATEGORIES MANAGEMENT ================= */}
         {activeTab === 'categories' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
