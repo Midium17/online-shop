@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.dependencies import get_current_user
-
+from app.dependencies import get_current_user, get_current_admin_user
+from typing import List
 from app import models, schemas
 from app.database import get_db
 from app.security import get_password_hash, verify_password, create_access_token
@@ -44,3 +44,29 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
 @router.get("/me", response_model=schemas.UserResponse)
 def get_me(current_user: models.UserModel = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/admin/customers", response_model=List[schemas.CustomerAnalyticsResponse])
+def get_customers_analytics(
+    db: Session = Depends(get_db),
+    admin: models.UserModel = Depends(get_current_admin_user)
+):
+    # Fetch all non-admin customer accounts
+    users = db.query(models.UserModel).filter(models.UserModel.is_admin == False).all()
+    customer_data = []
+
+    for user in users:
+        # Aggregate orders associated with customer email
+        orders = db.query(models.OrderModel).filter(models.OrderModel.customer_email == user.email).all()
+        total_spent = sum(o.total_amount for o in orders if o.total_amount)
+        order_count = len(orders)
+
+        customer_data.append({
+            "id": user.id,
+            "email": user.email,
+            "total_orders": order_count,
+            "total_spent": total_spent,
+            "has_ordered_before": order_count > 0
+        })
+
+    return customer_data
