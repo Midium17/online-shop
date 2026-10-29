@@ -29,6 +29,7 @@ export default function Admin() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [customers, setCustomers] = useState([]);
 
   // Form States
   const [newProduct, setNewProduct] = useState({
@@ -56,14 +57,16 @@ export default function Admin() {
 
   const fetchData = async () => {
     try {
-      const [prodRes, catRes, ordRes] = await Promise.all([
+      const [prodRes, catRes, ordRes, custRes] = await Promise.all([
         api.get('/products/'),
         api.get('/categories/'),
         api.get('/orders/'),
+        api.get('/auth/admin/customers'),
       ]);
       setProducts(prodRes.data);
       setCategories(catRes.data);
       setOrders(ordRes.data);
+      setCustomers(custRes.data);
     } catch (err) {
       setError('Failed to load admin data. Ensure you are logged in as admin.');
     }
@@ -72,7 +75,7 @@ export default function Admin() {
   // Metrics Calculations
   const totalSales = orders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
   const totalOrders = orders.length;
-  const netSales = totalSales * 0.92; // Simulated net calculation (after fees/tax)
+  const netSales = totalSales * 0.92;
   const totalVariants = products.length;
 
   // Image Upload Handler
@@ -177,9 +180,9 @@ export default function Admin() {
       <aside className="w-64 bg-white border-r border-gray-100 flex flex-col justify-between p-6 shrink-0">
         <div>
           {/* Logo */}
-        {/*  <div className="mb-8 flex items-center gap-2">
+          <div className="mb-8 flex items-center gap-2">
             <span className="text-2xl font-black tracking-tight text-emerald-900">nxtbn</span>
-          </div>*/} 
+          </div>
 
           <p className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mb-3">MENU</p>
 
@@ -225,11 +228,14 @@ export default function Admin() {
 
             <button
               onClick={() => setActiveTab('customers')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition ${
                 activeTab === 'customers' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              <Users className="w-4 h-4" /> Customers
+              <div className="flex items-center gap-3">
+                <Users className="w-4 h-4" /> Customers
+              </div>
+              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">{customers.length}</span>
             </button>
           </nav>
         </div>
@@ -252,7 +258,6 @@ export default function Admin() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Hi, Admin</h1>
 
-          {/* Search bar & Admin profile */}
           <div className="flex items-center gap-4">
             <div className="relative">
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
@@ -290,10 +295,7 @@ export default function Admin() {
         {/* ================= TAB 1: DASHBOARD ANALYTICS ================= */}
         {activeTab === 'dashboard' && (
           <div className="space-y-8">
-            
-            {/* Top 4 Metric KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-              {/* Total Sales */}
               <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-2xs flex justify-between items-start">
                 <div>
                   <p className="text-xs font-medium text-gray-400 mb-1">Total Sales</p>
@@ -307,7 +309,6 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Total Order */}
               <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-2xs flex justify-between items-start">
                 <div>
                   <p className="text-xs font-medium text-gray-400 mb-1">Total Order</p>
@@ -321,7 +322,6 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Net Sales */}
               <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-2xs flex justify-between items-start">
                 <div>
                   <p className="text-xs font-medium text-gray-400 mb-1">Net Sales</p>
@@ -335,7 +335,6 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Total Variant */}
               <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-2xs flex justify-between items-start">
                 <div>
                   <p className="text-xs font-medium text-gray-400 mb-1">Total Variant</p>
@@ -350,10 +349,7 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Total Order Overview & Stock Unit Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Sales Statistics Graph Panel */}
               <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-6">
                 <div className="flex justify-between items-center">
                   <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
@@ -366,14 +362,12 @@ export default function Admin() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                  {/* Total Orders Metric Badge */}
                   <div className="bg-[#1A382B] text-white p-5 rounded-2xl space-y-2">
                     <p className="text-xs text-emerald-200">Total orders</p>
                     <h3 className="text-3xl font-black">{totalOrders}</h3>
                     <p className="text-[10px] text-emerald-300">Live store order count</p>
                   </div>
 
-                  {/* SVG Line Chart Representation */}
                   <div className="md:col-span-2 space-y-2">
                     <div className="flex justify-between items-center text-xs text-gray-400">
                       <span className="font-semibold text-gray-700">Statistics</span>
@@ -398,14 +392,12 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Stock Unit Donut Visualization */}
               <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs flex flex-col justify-between">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-base font-bold text-gray-900">Stock Unit</h2>
                   <span className="text-xs text-gray-400 flex items-center gap-1 border px-2 py-0.5 rounded-lg">Month <ChevronDown className="w-3 h-3" /></span>
                 </div>
 
-                {/* Donut Chart representation */}
                 <div className="relative w-36 h-36 mx-auto my-2 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                     <path
@@ -444,7 +436,6 @@ export default function Admin() {
                   </div>
                 </div>
 
-                {/* Donut Legend */}
                 <div className="flex justify-center gap-4 text-[11px] text-gray-500 pt-4 border-t">
                   <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Production</span>
                   <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Store</span>
@@ -453,7 +444,6 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Most Selling Products Section */}
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-bold text-gray-900">Most Selling Products</h2>
@@ -660,6 +650,78 @@ export default function Admin() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ================= TAB 5: CUSTOMERS ANALYTICS & MANAGEMENT ================= */}
+        {activeTab === 'customers' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs">
+                <p className="text-xs font-medium text-gray-400 mb-1">Total Registered Customers</p>
+                <h3 className="text-3xl font-black text-gray-900">{customers.length}</h3>
+                <span className="text-xs text-emerald-600 font-semibold mt-2 block">Active user accounts</span>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs">
+                <p className="text-xs font-medium text-gray-400 mb-1">Customers with Purchases</p>
+                <h3 className="text-3xl font-black text-gray-900">
+                  {customers.filter((c) => c.total_orders > 0).length}
+                </h3>
+                <span className="text-xs text-emerald-600 font-semibold mt-2 block">Converted buyers</span>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs">
+                <p className="text-xs font-medium text-gray-400 mb-1">Average Customer Lifetime Value</p>
+                <h3 className="text-3xl font-black text-gray-900">
+                  ${customers.length > 0 ? (customers.reduce((acc, c) => acc + c.total_spent, 0) / customers.length).toFixed(2) : '0.00'}
+                </h3>
+                <span className="text-xs text-emerald-600 font-semibold mt-2 block">Revenue per user</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
+              <h2 className="text-lg font-bold text-gray-900">Customer Directory & Order Insights</h2>
+              
+              {customers.length === 0 ? (
+                <div className="p-12 text-center text-gray-400">
+                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="font-medium">No registered customers found yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b text-xs text-gray-400 uppercase">
+                        <th className="py-3 px-4">Customer ID & Email</th>
+                        <th className="py-3 px-4">Total Orders</th>
+                        <th className="py-3 px-4">Total Spent</th>
+                        <th className="py-3 px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-sm">
+                      {customers.map((cust) => (
+                        <tr key={cust.id} className="hover:bg-gray-50/50 transition">
+                          <td className="py-4 px-4 font-semibold text-gray-900 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 flex items-center font-bold justify-center text-xs">
+                              {cust.email[0].toUpperCase()}
+                            </div>
+                            {cust.email}
+                          </td>
+                          <td className="py-4 px-4 text-gray-600">{cust.total_orders} orders</td>
+                          <td className="py-4 px-4 font-bold text-emerald-700">${cust.total_spent.toFixed(2)}</td>
+                          <td className="py-4 px-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              cust.total_orders > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {cust.total_orders > 0 ? 'Active Buyer' : 'Registered Guest'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
