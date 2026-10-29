@@ -47,9 +47,11 @@ class ProductBase(BaseModel):
     title: str
     description: Optional[str] = None
     price: float
+    stock: int
     image_url: Optional[str] = None
     image_urls: Optional[List[str]] = []
-    stock: int = 0
+    sizes: Optional[List[str]] = ["S", "M", "L", "XL"]
+    colors: Optional[List[str]] = ["Black", "White", "Navy"]
     category_id: Optional[int] = None
 
 class ProductCreate(ProductBase):
