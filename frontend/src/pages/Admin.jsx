@@ -653,77 +653,114 @@ export default function Admin() {
           </div>
         )}
 
-        {/* ================= TAB 5: CUSTOMERS ANALYTICS & MANAGEMENT ================= */}
-        {activeTab === 'customers' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs">
-                <p className="text-xs font-medium text-gray-400 mb-1">Total Registered Customers</p>
-                <h3 className="text-3xl font-black text-gray-900">{customers.length}</h3>
-                <span className="text-xs text-emerald-600 font-semibold mt-2 block">Active user accounts</span>
-              </div>
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs">
-                <p className="text-xs font-medium text-gray-400 mb-1">Customers with Purchases</p>
-                <h3 className="text-3xl font-black text-gray-900">
-                  {customers.filter((c) => c.total_orders > 0).length}
-                </h3>
-                <span className="text-xs text-emerald-600 font-semibold mt-2 block">Converted buyers</span>
-              </div>
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs">
-                <p className="text-xs font-medium text-gray-400 mb-1">Average Customer Lifetime Value</p>
-                <h3 className="text-3xl font-black text-gray-900">
-                  ${customers.length > 0 ? (customers.reduce((acc, c) => acc + c.total_spent, 0) / customers.length).toFixed(2) : '0.00'}
-                </h3>
-                <span className="text-xs text-emerald-600 font-semibold mt-2 block">Revenue per user</span>
-              </div>
-            </div>
+        {/* ================= TAB 5: CUSTOMERS DIRECTORY & ANALYTICS ================= */}
+{activeTab === 'customers' && (
+  <div className="space-y-6">
+    {/* Top Summary Metrics */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs">
+        <p className="text-xs font-medium text-gray-400 mb-1">Total Registered Customers</p>
+        <h3 className="text-3xl font-black text-gray-900">{customers.length}</h3>
+        <span className="text-xs text-emerald-600 font-semibold mt-2 block">Active user accounts</span>
+      </div>
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs">
+        <p className="text-xs font-medium text-gray-400 mb-1">Customers with Purchases</p>
+        <h3 className="text-3xl font-black text-gray-900">
+          {customers.filter((c) => c.total_orders > 0).length}
+        </h3>
+        <span className="text-xs text-emerald-600 font-semibold mt-2 block">Converted buyers</span>
+      </div>
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs">
+        <p className="text-xs font-medium text-gray-400 mb-1">Average Customer Lifetime Value</p>
+        <h3 className="text-3xl font-black text-gray-900">
+          ${customers.length > 0 ? (customers.reduce((acc, c) => acc + c.total_spent, 0) / customers.length).toFixed(2) : '0.00'}
+        </h3>
+        <span className="text-xs text-emerald-600 font-semibold mt-2 block">Revenue per user</span>
+      </div>
+    </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
-              <h2 className="text-lg font-bold text-gray-900">Customer Directory & Order Insights</h2>
-              
-              {customers.length === 0 ? (
-                <div className="p-12 text-center text-gray-400">
-                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="font-medium">No registered customers found yet.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b text-xs text-gray-400 uppercase">
-                        <th className="py-3 px-4">Customer ID & Email</th>
-                        <th className="py-3 px-4">Total Orders</th>
-                        <th className="py-3 px-4">Total Spent</th>
-                        <th className="py-3 px-4">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 text-sm">
-                      {customers.map((cust) => (
-                        <tr key={cust.id} className="hover:bg-gray-50/50 transition">
-                          <td className="py-4 px-4 font-semibold text-gray-900 flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 flex items-center font-bold justify-center text-xs">
-                              {cust.email[0].toUpperCase()}
-                            </div>
-                            {cust.email}
-                          </td>
-                          <td className="py-4 px-4 text-gray-600">{cust.total_orders} orders</td>
-                          <td className="py-4 px-4 font-bold text-emerald-700">${cust.total_spent.toFixed(2)}</td>
-                          <td className="py-4 px-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              cust.total_orders > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
-                            }`}>
-                              {cust.total_orders > 0 ? 'Active Buyer' : 'Registered Guest'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+    {/* Comprehensive Customer Directory Table */}
+    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
+      <h2 className="text-lg font-bold text-gray-900">Complete Customer Information & Shipping Profiles</h2>
+      
+      {customers.length === 0 ? (
+        <div className="p-12 text-center text-gray-400">
+          <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="font-medium">No registered customers found yet.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b text-xs text-gray-400 uppercase">
+                <th className="py-3 px-4">Customer</th>
+                <th className="py-3 px-4">Contact & Phone</th>
+                <th className="py-3 px-4">Shipping Address</th>
+                <th className="py-3 px-4">Orders</th>
+                <th className="py-3 px-4">Total Spent</th>
+                <th className="py-3 px-4">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 text-sm">
+              {customers.map((cust) => (
+                <tr key={cust.id} className="hover:bg-gray-50/50 transition">
+                  {/* Name & Email */}
+                  <td className="py-4 px-4 font-semibold text-gray-900 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-700 flex items-center font-bold justify-center text-xs shrink-0">
+                      {cust.email[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-900">
+                        {cust.first_name && cust.first_name !== 'N/A' ? `${cust.first_name} ${cust.last_name || ''}` : 'Guest Account'}
+                      </p>
+                      <p className="text-xs text-gray-400">{cust.email}</p>
+                    </div>
+                  </td>
+
+                  {/* Phone */}
+                  <td className="py-4 px-4 text-xs text-gray-600 font-medium">
+                    {cust.phone || 'No phone provided'}
+                  </td>
+
+                  {/* Address */}
+                  <td className="py-4 px-4 text-xs text-gray-600">
+                    {cust.address && cust.address !== 'N/A' ? (
+                      <div>
+                        <p>{cust.address}</p>
+                        <p className="text-gray-400">{cust.city}, {cust.country}</p>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic">No address on file</span>
+                    )}
+                  </td>
+
+                  {/* Total Orders */}
+                  <td className="py-4 px-4 font-medium text-gray-700">
+                    {cust.total_orders} orders
+                  </td>
+
+                  {/* Total Spent */}
+                  <td className="py-4 px-4 font-bold text-emerald-700">
+                    ${cust.total_spent.toFixed(2)}
+                  </td>
+
+                  {/* Status Badge */}
+                  <td className="py-4 px-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      cust.total_orders > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {cust.total_orders > 0 ? 'Active Buyer' : 'Registered Guest'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
       </main>
     </div>
