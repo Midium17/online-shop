@@ -66,7 +66,7 @@ class OrderItemCreate(BaseModel):
     quantity: int
 
 class OrderCreate(BaseModel):
-    customer_email: str
+    customer_email: EmailStr
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone: Optional[str] = None
@@ -88,6 +88,13 @@ class OrderItemResponse(BaseModel):
 class OrderResponse(BaseModel):
     id: int
     customer_email: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
     total_amount: float
     status: str
     items: List[OrderItemResponse] = []
