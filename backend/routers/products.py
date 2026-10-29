@@ -78,3 +78,21 @@ def delete_product(
     db.delete(product)
     db.commit()
     return None
+
+@router.put("/{product_id}", response_model=schemas.ProductResponse)
+def update_product(
+    product_id: int, 
+    product_update: schemas.ProductCreate, 
+    db: Session = Depends(get_db), 
+    admin: models.UserModel = Depends(get_current_admin_user)
+):
+    db_product = db.query(models.ProductModel).filter(models.ProductModel.id == product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    for key, value in product_update.dict().items():
+        setattr(db_product, key, value)
+        
+    db.commit()
+    db.refresh(db_product)
+    return db_product
