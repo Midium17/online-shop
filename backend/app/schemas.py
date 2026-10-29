@@ -115,6 +115,12 @@ class CustomerAnalyticsResponse(BaseModel):
     total_orders: int
     total_spent: float
     has_ordered_before: bool
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
 
     class Config:
         from_attributes = True
