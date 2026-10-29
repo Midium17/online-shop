@@ -48,6 +48,7 @@ class ProductBase(BaseModel):
     description: Optional[str] = None
     price: float
     image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = []
     stock: int = 0
     category_id: Optional[int] = None
 
