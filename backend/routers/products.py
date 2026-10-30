@@ -45,16 +45,29 @@ def upload_images(
         "image_urls": uploaded_urls
     }
 
-# ... keep existing create_product, get_products, get_product, delete_product routes below
+
 
 # 1. CREATE a new product (Protected: Admin only)
 @router.post("/", response_model=schemas.ProductResponse, status_code=status.HTTP_201_CREATED)
 def create_product(
     product: schemas.ProductCreate, 
-    db: Session = Depends(get_db),
-    current_user: models.UserModel = Depends(get_current_admin_user)
+    db: Session = Depends(get_db), 
+    admin: models.UserModel = Depends(get_current_admin_user)
 ):
-    db_product = models.ProductModel(**product.dict())
+    product_data = product.dict()
+    
+   
+    if "image_urls" in product_data:
+        image_urls = product_data.pop("image_urls")
+        
+        if not product_data.get("image_url") and image_urls:
+            product_data["image_url"] = image_urls[0]
+
+   
+    product_data.pop("sizes", None)
+    product_data.pop("colors", None)
+
+    db_product = models.ProductModel(**product_data)
     db.add(db_product)
     db.commit()
     db.refresh(db_product)

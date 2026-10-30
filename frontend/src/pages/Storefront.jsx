@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { ShoppingBag, Star, Eye } from 'lucide-react';
+import { ShoppingBag, Star, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Storefront({ addToCart }) {
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [activeImage, setActiveImage] = useState('');
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -24,12 +24,36 @@ export default function Storefront({ addToCart }) {
     }
   };
 
+  // Helper to normalize images array from backend
+  const getProductImages = (product) => {
+    if (!product) return [];
+    if (product.image_urls && product.image_urls.length > 0) {
+      return product.image_urls;
+    }
+    if (product.image_url) {
+      return [product.image_url];
+    }
+    return ['https://images.unsplash.com/photo-1523275335684-37898b6baf30'];
+  };
+
   const handleOpenQuickView = (product) => {
     setSelectedProduct(product);
-    setActiveImage(product.image_url || product.image_urls?.[0] || '');
+    setActiveImageIndex(0);
     setSelectedSize(product.sizes?.[0] || 'M');
     setSelectedColor(product.colors?.[0] || 'Black');
     setQuantity(1);
+  };
+
+  const handleNextImage = () => {
+    const images = getProductImages(selectedProduct);
+    if (images.length === 0) return;
+    setActiveImageIndex((prevIndex) => (prevIndex + 1) % images.length);
+  };
+
+  const handlePrevImage = () => {
+    const images = getProductImages(selectedProduct);
+    if (images.length === 0) return;
+    setActiveImageIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
   };
 
   const handleAddToCartModal = () => {
@@ -43,85 +67,119 @@ export default function Storefront({ addToCart }) {
     setSelectedProduct(null);
   };
 
+  const currentGalleryImages = selectedProduct ? getProductImages(selectedProduct) : [];
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 font-sans">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-black text-gray-900">Explore Store</h1>
-          <p className="text-sm text-gray-500">Discover our latest collection with custom sizes, colors & multi-image views</p>
+          <p className="text-sm text-gray-500">Discover our latest collection with custom options and multi-image galleries</p>
         </div>
       </div>
 
       {error && <div className="bg-red-50 text-red-700 p-4 rounded-xl mb-6 text-sm">{error}</div>}
 
-      {/* Product Grid */}
+      {/* Product Catalog Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {products.map((product) => (
-          <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-2xs overflow-hidden flex flex-col group">
-            <div className="relative aspect-square bg-gray-50 overflow-hidden">
-              <img
-                src={product.image_url || product.image_urls?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30'}
-                alt={product.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-              />
-              <button
-                onClick={() => handleOpenQuickView(product)}
-                className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-bold text-gray-900 shadow-md opacity-0 group-hover:opacity-100 transition flex items-center gap-1.5"
-              >
-                <Eye className="w-3.5 h-3.5" /> Quick View
-              </button>
-            </div>
-
-            <div className="p-4 flex flex-col justify-between flex-1">
-              <div>
-                <div className="flex items-center gap-1 text-amber-500 mb-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                  ))}
-                  <span className="text-[10px] text-gray-400 ml-1">(4.8)</span>
-                </div>
-                <h3 className="font-bold text-gray-900 text-sm truncate">{product.title}</h3>
-                <p className="text-xs text-gray-400 mt-1 line-clamp-1">{product.description || 'No description'}</p>
-              </div>
-
-              <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-50">
-                <span className="text-base font-black text-emerald-700">${product.price.toFixed(2)}</span>
+        {products.map((product) => {
+          const mainImg = getProductImages(product)[0];
+          return (
+            <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-2xs overflow-hidden flex flex-col group">
+              <div className="relative aspect-square bg-gray-50 overflow-hidden">
+                <img
+                  src={mainImg}
+                  alt={product.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                />
                 <button
                   onClick={() => handleOpenQuickView(product)}
-                  className="bg-[#1A382B] text-white px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-emerald-900 transition"
+                  className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-bold text-gray-900 shadow-md opacity-0 group-hover:opacity-100 transition flex items-center gap-1.5"
                 >
-                  Select Options
+                  <Eye className="w-3.5 h-3.5" /> Quick View
                 </button>
               </div>
+
+              <div className="p-4 flex flex-col justify-between flex-1">
+                <div>
+                  <div className="flex items-center gap-1 text-amber-500 mb-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                    ))}
+                    <span className="text-[10px] text-gray-400 ml-1">(4.8)</span>
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-sm truncate">{product.title}</h3>
+                  <p className="text-xs text-gray-400 mt-1 line-clamp-1">{product.description || 'No description'}</p>
+                </div>
+
+                <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-50">
+                  <span className="text-base font-black text-emerald-700">${product.price.toFixed(2)}</span>
+                  <button
+                    onClick={() => handleOpenQuickView(product)}
+                    className="bg-[#1A382B] text-white px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-emerald-900 transition"
+                  >
+                    Select Options
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Quick View / Product Detail Modal with Multi-Images, Colors, Sizes & Reviews */}
+      {/* Quick View Modal with Next/Prev Image Navigation Arrows */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-3xl w-full p-6 md:p-8 relative shadow-2xl overflow-y-auto max-h-[90vh]">
             <button
               onClick={() => setSelectedProduct(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-lg p-2"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-lg p-2 z-10"
             >
               ✕
             </button>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Multi-Image Gallery */}
+              {/* Multi-Image Gallery with Navigation Arrows */}
               <div className="space-y-4">
-                <div className="aspect-square bg-gray-50 rounded-2xl overflow-hidden border">
-                  <img src={activeImage} alt={selectedProduct.title} className="w-full h-full object-cover" />
+                <div className="relative aspect-square bg-gray-50 rounded-2xl overflow-hidden border group">
+                  <img
+                    src={currentGalleryImages[activeImageIndex]}
+                    alt={selectedProduct.title}
+                    className="w-full h-full object-cover transition duration-300"
+                  />
+
+                  {/* Left & Right Next/Prev Image Arrows */}
+                  {currentGalleryImages.length > 1 && (
+                    <>
+                      <button
+                        onClick={handlePrevImage}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 hover:bg-white text-gray-800 rounded-full shadow-md backdrop-blur-xs transition"
+                        title="Previous Image"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+
+                      <button
+                        onClick={handleNextImage}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 hover:bg-white text-gray-800 rounded-full shadow-md backdrop-blur-xs transition"
+                        title="Next Image"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
                 </div>
-                {selectedProduct.image_urls && selectedProduct.image_urls.length > 1 && (
+
+                {/* Thumbnails Row */}
+                {currentGalleryImages.length > 1 && (
                   <div className="flex gap-2 overflow-x-auto pb-2">
-                    {selectedProduct.image_urls.map((img, idx) => (
+                    {currentGalleryImages.map((img, idx) => (
                       <button
                         key={idx}
-                        onClick={() => setActiveImage(img)}
-                        className={`w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 ${activeImage === img ? 'border-emerald-600' : 'border-transparent'}`}
+                        onClick={() => setActiveImageIndex(idx)}
+                        className={`w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 transition ${
+                          activeImageIndex === idx ? 'border-emerald-600 ring-2 ring-emerald-600/20' : 'border-transparent opacity-70 hover:opacity-100'
+                        }`}
                       >
                         <img src={img} alt="" className="w-full h-full object-cover" />
                       </button>
@@ -130,7 +188,7 @@ export default function Storefront({ addToCart }) {
                 )}
               </div>
 
-              {/* Product Info, Colors, Sizes & Actions */}
+              {/* Product Info & Options */}
               <div className="space-y-6">
                 <div>
                   <h2 className="text-2xl font-black text-gray-900">{selectedProduct.title}</h2>
@@ -140,7 +198,9 @@ export default function Storefront({ addToCart }) {
 
                 {/* Color Selector */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Color: <span className="text-emerald-700">{selectedColor}</span></label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                    Color: <span className="text-emerald-700">{selectedColor}</span>
+                  </label>
                   <div className="flex gap-2">
                     {(selectedProduct.colors || ['Black', 'White', 'Navy']).map((color) => (
                       <button
@@ -158,7 +218,9 @@ export default function Storefront({ addToCart }) {
 
                 {/* Size Selector */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Size: <span className="text-emerald-700">{selectedSize}</span></label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                    Size: <span className="text-emerald-700">{selectedSize}</span>
+                  </label>
                   <div className="flex gap-2">
                     {(selectedProduct.sizes || ['S', 'M', 'L', 'XL']).map((size) => (
                       <button
