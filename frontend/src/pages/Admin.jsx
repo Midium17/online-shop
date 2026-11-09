@@ -6,6 +6,7 @@ import ProductsTab from '../components/admin/ProductsTab';
 import CategoriesTab from '../components/admin/CategoriesTab';
 import OrdersTab from '../components/admin/OrdersTab';
 import CustomersTab from '../components/admin/CustomersTab';
+import AdminCsvManager from '../components/admin/AdminCsvManager';
 import UsersTab from '../components/admin/UsersTab';
 import {
   LayoutDashboard,
@@ -14,12 +15,14 @@ import {
   FolderTree,
   Users,
   Shield,
+  FileSpreadsheet,
   Settings,
   HelpCircle,
   Search,
   Bell,
   Mail
 } from 'lucide-react';
+
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -305,6 +308,17 @@ export default function Admin() {
               </button>
             )}
 
+            {hasPermission(userRole, 'inventory:read') && (
+              <button
+                onClick={() => setActiveTab('csv')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition ${
+                  activeTab === 'csv' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4" /> CSV Manager
+              </button>
+            )}
+
             {hasPermission(userRole, 'customers:read') && (
               <button
                 onClick={() => setActiveTab('customers')}
@@ -432,7 +446,12 @@ export default function Admin() {
           />
         )}
 
-        {/* TAB 4: ORDERS MANAGEMENT */}
+        {/* TAB 4: CSV MANAGER */}
+        {activeTab === 'csv' && hasPermission(userRole, 'inventory:read') && (
+          <AdminCsvManager />
+        )}
+
+        {/* TAB 5: ORDERS MANAGEMENT */}
         {activeTab === 'orders' && hasPermission(userRole, 'orders:read') && (
           <OrdersTab
             orderFilter={orderFilter}
@@ -446,12 +465,12 @@ export default function Admin() {
           />
         )}
 
-        {/* TAB 5: CUSTOMERS DIRECTORY */}
+        {/* TAB 6: CUSTOMERS DIRECTORY */}
         {activeTab === 'customers' && hasPermission(userRole, 'customers:read') && (
           <CustomersTab customers={customers} />
         )}
 
-        {/* TAB 6: USERS & ROLES MANAGEMENT */}
+        {/* TAB 7: USERS & ROLES MANAGEMENT */}
         {activeTab === 'users' && userRole === 'admin' && (
           <UsersTab
             users={users}

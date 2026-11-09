@@ -1,8 +1,12 @@
 import os
+import csv
+import io
 import shutil
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import List, Union
+from sqlalchemy import asc, desc
+from typing import List, Union, Optional
 from app.permissions import Permission
 from app import models, schemas
 from app.database import get_db
@@ -111,3 +115,120 @@ def delete_product(
     db.delete(product)
     db.commit()
     return None
+
+
+@router.post("/import-csv", status_code=status.HTTP_201_CREATED)
+async def import_products_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    # current_admin: models.UserModel = Depends(get_current_admin_user) # Uncomment to enforce admin access
+):
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Invalid file format. Please upload a CSV file.")
+    
+    contents = await file.read()
+    decoded = contents.decode("utf-8")
+    io_stream = io.StringIO(decoded)
+    reader = csv.DictReader(io_stream)
+    
+    imported_count = 0
+    errors = []
+
+    for row_idx, row in enumerate(reader, start=1):
+        try:
+            # Expected CSV columns: title, description, price, stock, image_url, category_id (optional)
+            title = row.get("title")
+            description = row.get("description", "")
+            price = float(row.get("price", 0.0))
+            stock = int(row.get("stock", 0))
+            image_url = row.get("image_url", "")
+            
+            if not title:
+                errors.append(f"Row {row_idx}: Missing product 'title'.")
+                continue
+
+            product = models.ProductModel(
+                title=title,
+                description=description,
+                price=price,
+                stock=stock,
+                image_url=image_url
+            )
+            db.add(product)
+            imported_count += 1
+        except Exception as e:
+            errors.append(f"Row {row_idx}: Error parsing data ({str(e)})")
+
+    db.commit()
+    
+    return {
+        "message": f"Successfully imported {imported_count} products.",
+        "errors": errors
+    }
+
+
+@router.get("/export-csv", status_code=status.HTTP_200_OK)
+def export_products_csv(
+    db: Session = Depends(get_db),
+    # current_admin: models.UserModel = Depends(get_current_admin_user) # Uncomment to enforce admin access
+):
+    # 1. Fetch all products from the database
+    products = db.query(models.ProductModel).all()
+    
+    # 2. Create an in-memory string stream for CSV data
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+    
+    # 3. Write header row
+    writer.writerow(["id", "title", "description", "price", "stock", "image_url"])
+    
+    # 4. Write product rows
+    for product in products:
+        writer.writerow([
+            product.id,
+            product.title,
+            product.description or "",
+            product.price,
+            product.stock,
+            product.image_url or ""
+        ])
+    
+    # 5. Reset stream position to the beginning
+    stream.seek(0)
+    
+    # 6. Return as a downloadable streaming response
+    response = StreamingResponse(
+        iter([stream.getvalue()]),
+        media_type="text/csv"
+    )
+    response.headers["Content-Disposition"] = "attachment; filename=products_export.csv"
+    return response
+
+
+@router.get("/", response_model=list[schemas.ProductResponse])
+def get_products(
+    skip: int = 0,
+    limit: int = 10,
+    category_id: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.ProductModel)
+    
+    # 1. Filter by Category
+    if category_id:
+        query = query.filter(models.ProductModel.category_id == category_id)
+        
+    # 2. Sorting
+    if sort_by == "price_asc":
+        query = query.order_by(asc(models.ProductModel.price))
+    elif sort_by == "price_desc":
+        query = query.order_by(desc(models.ProductModel.price))
+    elif sort_by == "newest":
+        query = query.order_by(desc(models.ProductModel.id))
+    elif sort_by == "title":
+        query = query.order_by(asc(models.ProductModel.title))
+        
+    # 3. Pagination
+    products = query.offset(skip).limit(limit).all()
+    return products
