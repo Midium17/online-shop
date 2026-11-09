@@ -9,6 +9,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    
+    # Automatically run all steps inside your backend folder
+    defaults:
+      run:
+        working-directory: ./backend
 
     steps:
     - name: Checkout Repository
