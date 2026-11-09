@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Checkout from './pages/Checkout';
 import Register from './pages/Register';
 import Account from './pages/Account';
+import ProtectedRoute from './components/ProtectedRoute'; // <-- Import the protection wrapper
 
 export default function App() {
   // Shopping Cart Persistence
@@ -33,21 +34,27 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated) {
       api.get('/auth/me')
-        .then((res) => setUser(res.data))
+        .then((res) => {
+          setUser(res.data);
+          const role = res.data.role || (res.data.is_admin ? 'admin' : 'customer');
+          localStorage.setItem('user_role', role);
+        })
         .catch(() => {
-          // Token expired or invalid
           localStorage.removeItem('token');
+          localStorage.removeItem('user_role');
           setIsAuthenticated(false);
           setUser(null);
         });
     } else {
       setUser(null);
+      localStorage.removeItem('user_role');
     }
   }, [isAuthenticated]);
 
   // Logout Handler
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user_role');
     setIsAuthenticated(false);
     setUser(null);
   };
@@ -79,7 +86,7 @@ export default function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50 text-gray-800">
+      <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
         <Navbar
           cartCount={totalCartCount}
           isAuthenticated={isAuthenticated}
@@ -113,21 +120,10 @@ export default function App() {
             element={isAuthenticated ? <Account /> : <Navigate to="/login" replace />}
           />
 
-          {/* Protected Admin Route (Only accessible if logged in and user.is_admin is true) */}
-          <Route
-            path="/admin"
-            element={
-              isAuthenticated ? (
-                user?.is_admin ? (
-                  <Admin />
-                ) : (
-                  <Navigate to="/account" replace />
-                )
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+          {/* Protected Admin/Manager Route using ProtectedRoute wrapper */}
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'inventory_manager', 'order_manager']} />}>
+            <Route path="/admin" element={<Admin />} />
+          </Route>
         </Routes>
       </div>
     </Router>

@@ -5,23 +5,26 @@ from typing import List
 from app import models, schemas
 from app.database import get_db
 from app.dependencies import get_current_admin_user
-
+from app.permissions import user_has_permission
+from app.security import get_current_user, require_permission
 router = APIRouter(
     prefix="/categories",
     tags=["Categories"]
 )
 
-# CREATE a category (Protected: Admin only)
 @router.post("/", response_model=schemas.CategoryResponse, status_code=status.HTTP_201_CREATED)
 def create_category(
-    category: schemas.CategoryCreate, 
+    category: schemas.CategoryCreate,
     db: Session = Depends(get_db),
-    current_user: models.UserModel = Depends(get_current_admin_user)
+    current_user: models.UserModel = Depends(get_current_user)
 ):
-    existing = db.query(models.CategoryModel).filter(models.CategoryModel.name == category.name).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Category name already exists.")
-    
+    # Check if user has permission to manage categories
+    if not user_has_permission(current_user.role, "category:manage"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to create categories"
+        )
+
     db_category = models.CategoryModel(name=category.name, description=category.description)
     db.add(db_category)
     db.commit()

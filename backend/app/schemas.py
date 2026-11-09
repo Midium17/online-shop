@@ -1,22 +1,27 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional, List
 
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
-
-# User Schemas
+# ==================== USER SCHEMAS ====================
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    is_admin: Optional[bool] = False
+    role: Optional[str] = "customer"
+
 
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
-    is_admin: bool
+    role: str
+    first_name: Optional[str] = "N/A"
+    last_name: Optional[str] = "N/A"
+    total_orders: Optional[int] = 0
+    total_spent: Optional[float] = 0.0
 
-    class Config: 
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
 
 class Token(BaseModel):
     access_token: str
@@ -25,10 +30,14 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
 
-# ... (Keep Category and Product schemas from before)
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[str] = None
 
 
-# Category Schemas
+# ==================== CATEGORY SCHEMAS ====================
 class CategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -39,10 +48,10 @@ class CategoryCreate(CategoryBase):
 class CategoryResponse(CategoryBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
-# Product Schemas
+
+# ==================== PRODUCT SCHEMAS ====================
 class ProductBase(BaseModel):
     title: str
     description: Optional[str] = None
@@ -61,9 +70,10 @@ class ProductResponse(ProductBase):
     id: int
     category: Optional[CategoryResponse] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
+
+# ==================== ORDER SCHEMAS ====================
 class OrderItemCreate(BaseModel):
     product_id: int
     quantity: int
@@ -85,8 +95,7 @@ class OrderItemResponse(BaseModel):
     quantity: int
     price: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class OrderResponse(BaseModel):
     id: int
@@ -102,15 +111,12 @@ class OrderResponse(BaseModel):
     status: str
     items: List[OrderItemResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class OrderStatusUpdate(BaseModel):
     status: str
 
-class UserLogin(BaseModel):
-    email: str
-    password: str
+
 
 class CustomerAnalyticsResponse(BaseModel):
     id: int
@@ -125,5 +131,10 @@ class CustomerAnalyticsResponse(BaseModel):
     city: Optional[str] = None
     country: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+class UserRoleUpdate(BaseModel):
+    role: str
+
+class RolePermissionsUpdate(BaseModel):
+    permissions: List[str]

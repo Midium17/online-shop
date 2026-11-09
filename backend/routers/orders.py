@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from app.dependencies import get_current_user, get_current_admin_user
+from app.dependencies import get_current_user
+from app.permissions import Permission
+from app.dependencies import require_permission
 
 from app import models, schemas
 from app.database import get_db
@@ -62,7 +64,11 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
     return new_order
 
 @router.get("/", response_model=List[schemas.OrderResponse])
-def get_orders(db: Session = Depends(get_db)):
+def get_orders(
+    db: Session = Depends(get_db),
+    user: models.UserModel = Depends(require_permission(Permission.ORDERS_READ))
+):
+    """Requires 'orders:read' permission (Admin & Order Manager)"""
     orders = db.query(models.OrderModel).all()
     return orders
 
@@ -70,8 +76,10 @@ def get_orders(db: Session = Depends(get_db)):
 def update_order_status(
     order_id: int, 
     status_update: schemas.OrderStatusUpdate, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.UserModel = Depends(require_permission(Permission.ORDERS_UPDATE_STATUS))
 ):
+    """Requires 'orders:update_status' permission (Admin & Order Manager)"""
     order = db.query(models.OrderModel).filter(models.OrderModel.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found.")
@@ -86,6 +94,7 @@ def get_my_orders(
     current_user: models.UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Publicly accessible for any logged-in customer to view their own purchase history."""
     orders = db.query(models.OrderModel).filter(
         models.OrderModel.customer_email == current_user.email
     ).all()

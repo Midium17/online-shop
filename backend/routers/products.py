@@ -1,33 +1,26 @@
 import os
-import uuid
+import shutil
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List
-
+from typing import List, Union
+from app.permissions import Permission
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_current_admin_user
+from app.dependencies import require_permission
 
 router = APIRouter(
     prefix="/products",
     tags=["Products"]
 )
 
-# IMAGE UPLOAD ENDPOINT (Protected: Admin only)
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from typing import List, Union
-import shutil
-import os
-
-router = APIRouter(prefix="/products", tags=["Products"])
-
 UPLOAD_DIR = "static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# 0. IMAGE UPLOAD ENDPOINT (Protected: Requires Inventory Create permission)
 @router.post("/upload-image/")
 def upload_images(
     files: Union[List[UploadFile], UploadFile] = File(...),
-    admin: models.UserModel = Depends(get_current_admin_user)
+    user: models.UserModel = Depends(require_permission(Permission.INVENTORY_CREATE))
 ):
     # Ensure it's treated as a list even if a single file is uploaded
     if not isinstance(files, list):
@@ -45,25 +38,20 @@ def upload_images(
         "image_urls": uploaded_urls
     }
 
-
-
-# 1. CREATE a new product (Protected: Admin only)
+# 1. CREATE a new product (Protected: Requires inventory:create permission)
 @router.post("/", response_model=schemas.ProductResponse, status_code=status.HTTP_201_CREATED)
 def create_product(
     product: schemas.ProductCreate, 
     db: Session = Depends(get_db), 
-    admin: models.UserModel = Depends(get_current_admin_user)
+    user: models.UserModel = Depends(require_permission(Permission.INVENTORY_CREATE))
 ):
     product_data = product.dict()
     
-   
     if "image_urls" in product_data:
         image_urls = product_data.pop("image_urls")
-        
         if not product_data.get("image_url") and image_urls:
             product_data["image_url"] = image_urls[0]
 
-   
     product_data.pop("sizes", None)
     product_data.pop("colors", None)
 
@@ -87,12 +75,35 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Product not found")
     return product
 
-# 4. DELETE a product by ID (Protected: Admin only)
+# 4. UPDATE a product by ID (Protected: Requires inventory:update permission)
+@router.put("/{product_id}", response_model=schemas.ProductResponse)
+def update_product(
+    product_id: int, 
+    product_update: schemas.ProductCreate, 
+    db: Session = Depends(get_db), 
+    user: models.UserModel = Depends(require_permission(Permission.INVENTORY_UPDATE))
+):
+    db_product = db.query(models.ProductModel).filter(models.ProductModel.id == product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    update_data = product_update.dict()
+    update_data.pop("sizes", None)
+    update_data.pop("colors", None)
+
+    for key, value in update_data.items():
+        setattr(db_product, key, value)
+        
+    db.commit()
+    db.refresh(db_product)
+    return db_product
+
+# 5. DELETE a product by ID (Protected: Requires inventory:delete permission - Admin only)
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(
     product_id: int, 
     db: Session = Depends(get_db),
-    current_user: models.UserModel = Depends(get_current_admin_user)
+    user: models.UserModel = Depends(require_permission(Permission.INVENTORY_DELETE))
 ):
     product = db.query(models.ProductModel).filter(models.ProductModel.id == product_id).first()
     if not product:
@@ -100,21 +111,3 @@ def delete_product(
     db.delete(product)
     db.commit()
     return None
-
-@router.put("/{product_id}", response_model=schemas.ProductResponse)
-def update_product(
-    product_id: int, 
-    product_update: schemas.ProductCreate, 
-    db: Session = Depends(get_db), 
-    admin: models.UserModel = Depends(get_current_admin_user)
-):
-    db_product = db.query(models.ProductModel).filter(models.ProductModel.id == product_id).first()
-    if not db_product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    
-    for key, value in product_update.dict().items():
-        setattr(db_product, key, value)
-        
-    db.commit()
-    db.refresh(db_product)
-    return db_product

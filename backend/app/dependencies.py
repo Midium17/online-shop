@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.permissions import Permission, user_has_permission
 from app import models
 from app.security import SECRET_KEY, ALGORITHM  # <-- Import directly from security.py
 
@@ -28,9 +29,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 def get_current_admin_user(current_user: models.UserModel = Depends(get_current_user)):
-    if not current_user.is_admin:
+    user_role = getattr(current_user, "role", "customer")
+    
+    # Allow admin or managers to access admin functions, or check exactly for admin role
+    if user_role not in ["admin", "inventory_manager", "order_manager"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The user doesn't have administrative privileges."
         )
     return current_user
+
+def require_permission(required_permission: Permission):
+    def permission_checker(current_user: models.UserModel = Depends(get_current_user)):
+        user_role = getattr(current_user, "role", "admin" if getattr(current_user, "is_admin", False) else "customer")
+        
+        if not user_has_permission(user_role, required_permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Missing required permission: '{required_permission.value}'"
+            )
+        return current_user
+    return permission_checker

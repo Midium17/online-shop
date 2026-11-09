@@ -1,6 +1,13 @@
 from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, Boolean, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
+import enum
+
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    INVENTORY_MANAGER = "inventory_manager"
+    ORDER_MANAGER = "order_manager"
+    CUSTOMER = "customer"
 
 class UserModel(Base):
     __tablename__ = "users"
@@ -8,7 +15,9 @@ class UserModel(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    is_admin = Column(Boolean, default=False)
+    role = Column(String, default=UserRole.CUSTOMER.value, nullable=False)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
 
 class CategoryModel(Base):
     __tablename__ = "categories"
