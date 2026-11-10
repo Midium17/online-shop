@@ -11,13 +11,18 @@ export default function Storefront({ addToCart }) {
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState('');
 
+  // Pagination States
+  const [page, setPage] = useState(1);
+  const limit = 10; // Number of products per page
+
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [page]);
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get('/products/');
+      const skip = (page - 1) * limit;
+      const res = await api.get(`/products/?skip=${skip}&limit=${limit}`);
       setProducts(res.data);
     } catch (err) {
       setError('Failed to load products.');
@@ -80,12 +85,12 @@ export default function Storefront({ addToCart }) {
 
       {error && <div className="bg-red-50 text-red-700 p-4 rounded-xl mb-6 text-sm">{error}</div>}
 
-      {/* Product Catalog Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      {/* Product Catalog Grid (More compact cards using 5 columns on large screens) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {products.map((product) => {
           const mainImg = getProductImages(product)[0];
           return (
-            <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-2xs overflow-hidden flex flex-col group">
+            <div key={product.id} className="bg-white rounded-xl border border-gray-100 shadow-2xs overflow-hidden flex flex-col group">
               <div className="relative aspect-square bg-gray-50 overflow-hidden">
                 <img
                   src={mainImg}
@@ -94,37 +99,56 @@ export default function Storefront({ addToCart }) {
                 />
                 <button
                   onClick={() => handleOpenQuickView(product)}
-                  className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-bold text-gray-900 shadow-md opacity-0 group-hover:opacity-100 transition flex items-center gap-1.5"
+                  className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-bold text-gray-900 shadow-md opacity-0 group-hover:opacity-100 transition flex items-center gap-1"
                 >
-                  <Eye className="w-3.5 h-3.5" /> Quick View
+                  <Eye className="w-3 h-3" /> Quick View
                 </button>
               </div>
 
-              <div className="p-4 flex flex-col justify-between flex-1">
+              <div className="p-3 flex flex-col justify-between flex-1">
                 <div>
-                  <div className="flex items-center gap-1 text-amber-500 mb-1">
+                  <div className="flex items-center gap-0.5 text-amber-500 mb-0.5">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                      <Star key={i} className="w-3 h-3 fill-current" />
                     ))}
-                    <span className="text-[10px] text-gray-400 ml-1">(4.8)</span>
+                    <span className="text-[9px] text-gray-400 ml-1">(4.8)</span>
                   </div>
-                  <h3 className="font-bold text-gray-900 text-sm truncate">{product.title}</h3>
-                  <p className="text-xs text-gray-400 mt-1 line-clamp-1">{product.description || 'No description'}</p>
+                  <h3 className="font-bold text-gray-900 text-xs truncate">{product.title}</h3>
+                  <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{product.description || 'No description'}</p>
                 </div>
 
-                <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-50">
-                  <span className="text-base font-black text-emerald-700">${product.price.toFixed(2)}</span>
+                <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-50">
+                  <span className="text-sm font-black text-emerald-700">${product.price.toFixed(2)}</span>
                   <button
                     onClick={() => handleOpenQuickView(product)}
-                    className="bg-[#1A382B] text-white px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-emerald-900 transition"
+                    className="bg-[#1A382B] text-white px-2.5 py-1 rounded-lg text-[10px] font-semibold hover:bg-emerald-900 transition"
                   >
-                    Select Options
+                    Select
                   </button>
                 </div>
               </div>
             </div>
           );
         })}
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs mt-8">
+        <button
+          onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+          disabled={page === 1}
+          className="flex items-center gap-1 px-4 py-2 bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold disabled:opacity-50 hover:bg-gray-100 transition"
+        >
+          <ChevronLeft className="w-4 h-4" /> Previous
+        </button>
+        <span className="text-xs text-gray-600 font-bold">Page {page}</span>
+        <button
+          onClick={() => setPage((prev) => prev + 1)}
+          disabled={products.length < limit}
+          className="flex items-center gap-1 px-4 py-2 bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold disabled:opacity-50 hover:bg-gray-100 transition"
+        >
+          Next <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Quick View Modal with Next/Prev Image Navigation Arrows */}
