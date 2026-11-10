@@ -214,6 +214,8 @@ export default function Admin() {
   };
 
   // Category Handlers
+
+  // Create Category
   const handleCreateCategory = async (e) => {
     e.preventDefault();
     setError('');
@@ -225,6 +227,37 @@ export default function Admin() {
       fetchData();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to create category.');
+    }
+  };
+
+  // Update Category
+  const handleUpdateCategory = async (categoryId) => {
+    setError('');
+    setSuccess('');
+    try {
+      await api.put(`/categories/${categoryId}`, {
+        name: newCategory.name,
+        description: newCategory.description
+      });
+      setSuccess(`Category #${categoryId} updated successfully!`);
+      setNewCategory({ name: '', description: '' });
+      setEditingCategoryId(null);
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to update category.');
+    }
+  };
+
+  // Delete Category
+  const handleDeleteCategory = async (categoryId) => {
+    setError('');
+    setSuccess('');
+    try {
+      await api.delete(`/categories/${categoryId}`);
+      setSuccess('Category deleted successfully!');
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to delete category. Ensure no products are attached to it.');
     }
   };
 
@@ -437,12 +470,15 @@ export default function Admin() {
         )}
 
         {/* TAB 3: CATEGORIES MANAGEMENT */}
-        {activeTab === 'categories' && (hasPermission(userRole, 'category:manage') || hasPermission(userRole, 'inventory:read')) && (
+       {activeTab === 'categories' && (hasPermission(userRole, 'category:manage') || hasPermission(userRole, 'inventory:read')) && (
           <CategoriesTab
             newCategory={newCategory}
             setNewCategory={setNewCategory}
             handleCreateCategory={handleCreateCategory}
+            handleUpdateCategory={handleUpdateCategory}
+            handleDeleteCategory={handleDeleteCategory}
             categories={categories}
+            fetchData={fetchData}
           />
         )}
 
