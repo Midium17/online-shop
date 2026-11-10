@@ -26,7 +26,6 @@ def upload_images(
     files: Union[List[UploadFile], UploadFile] = File(...),
     user: models.UserModel = Depends(require_permission(Permission.INVENTORY_CREATE))
 ):
-    # Ensure it's treated as a list even if a single file is uploaded
     if not isinstance(files, list):
         files = [files]
 
@@ -65,10 +64,33 @@ def create_product(
     db.refresh(db_product)
     return db_product
 
-# 2. READ all products (Public)
+# 2. READ all products (Public with Pagination, Filtering, & Sorting)
 @router.get("/", response_model=List[schemas.ProductResponse])
-def get_products(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    products = db.query(models.ProductModel).offset(skip).limit(limit).all()
+def get_products(
+    skip: int = 0,
+    limit: int = 10,
+    category_id: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.ProductModel)
+    
+    # Filter by Category
+    if category_id:
+        query = query.filter(models.ProductModel.category_id == category_id)
+        
+    # Sorting
+    if sort_by == "price_asc":
+        query = query.order_by(asc(models.ProductModel.price))
+    elif sort_by == "price_desc":
+        query = query.order_by(desc(models.ProductModel.price))
+    elif sort_by == "newest":
+        query = query.order_by(desc(models.ProductModel.id))
+    elif sort_by == "title":
+        query = query.order_by(asc(models.ProductModel.title))
+        
+    # Pagination
+    products = query.offset(skip).limit(limit).all()
     return products
 
 # 3. READ a single product by ID (Public)
@@ -102,7 +124,7 @@ def update_product(
     db.refresh(db_product)
     return db_product
 
-# 5. DELETE a product by ID (Protected: Requires inventory:delete permission - Admin only)
+# 5. DELETE a product by ID (Protected: Requires inventory:delete permission)
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(
     product_id: int, 
@@ -116,12 +138,11 @@ def delete_product(
     db.commit()
     return None
 
-
+# 6. IMPORT CSV ENDPOINT
 @router.post("/import-csv", status_code=status.HTTP_201_CREATED)
 async def import_products_csv(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    # current_admin: models.UserModel = Depends(get_current_admin_user) # Uncomment to enforce admin access
 ):
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Invalid file format. Please upload a CSV file.")
@@ -136,7 +157,6 @@ async def import_products_csv(
 
     for row_idx, row in enumerate(reader, start=1):
         try:
-            # Expected CSV columns: title, description, price, stock, image_url, category_id (optional)
             title = row.get("title")
             description = row.get("description", "")
             price = float(row.get("price", 0.0))
@@ -166,23 +186,18 @@ async def import_products_csv(
         "errors": errors
     }
 
-
+# 7. EXPORT CSV ENDPOINT
 @router.get("/export-csv", status_code=status.HTTP_200_OK)
 def export_products_csv(
     db: Session = Depends(get_db),
-    # current_admin: models.UserModel = Depends(get_current_admin_user) # Uncomment to enforce admin access
 ):
-    # 1. Fetch all products from the database
     products = db.query(models.ProductModel).all()
     
-    # 2. Create an in-memory string stream for CSV data
     stream = io.StringIO()
     writer = csv.writer(stream)
     
-    # 3. Write header row
     writer.writerow(["id", "title", "description", "price", "stock", "image_url"])
     
-    # 4. Write product rows
     for product in products:
         writer.writerow([
             product.id,
@@ -193,42 +208,11 @@ def export_products_csv(
             product.image_url or ""
         ])
     
-    # 5. Reset stream position to the beginning
     stream.seek(0)
     
-    # 6. Return as a downloadable streaming response
     response = StreamingResponse(
         iter([stream.getvalue()]),
         media_type="text/csv"
     )
     response.headers["Content-Disposition"] = "attachment; filename=products_export.csv"
     return response
-
-
-@router.get("/", response_model=list[schemas.ProductResponse])
-def get_products(
-    skip: int = 0,
-    limit: int = 10,
-    category_id: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    query = db.query(models.ProductModel)
-    
-    # 1. Filter by Category
-    if category_id:
-        query = query.filter(models.ProductModel.category_id == category_id)
-        
-    # 2. Sorting
-    if sort_by == "price_asc":
-        query = query.order_by(asc(models.ProductModel.price))
-    elif sort_by == "price_desc":
-        query = query.order_by(desc(models.ProductModel.price))
-    elif sort_by == "newest":
-        query = query.order_by(desc(models.ProductModel.id))
-    elif sort_by == "title":
-        query = query.order_by(asc(models.ProductModel.title))
-        
-    # 3. Pagination
-    products = query.offset(skip).limit(limit).all()
-    return products
