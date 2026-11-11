@@ -148,43 +148,79 @@ def update_role_permissions(
     return {"message": f"Permissions updated for role: {role}", "permissions": list(ROLE_PERMISSIONS[role])}
 
 
-@router.get("/admin/customers", response_model=List[schemas.CustomerAnalyticsResponse])
+# GET ALL CUSTOMERS WITH FULL ORDER BREAKDOWN & PURCHASED ITEMS
+@router.get("/admin/customers")
 def get_all_customers(db: Session = Depends(get_db), current_user: models.UserModel = Depends(get_current_user)):
-    if current_user.role not in [models.UserRole.ADMIN.value, "order_manager"]:
+    # Allow any admin or staff role to view customer analytics
+    if current_user.role not in [models.UserRole.ADMIN.value, "order_manager", "inventory_manager", "manager"]:
         raise HTTPException(status_code=403, detail="Unauthorized access to customer directory")
     
-    users = db.query(models.UserModel).filter(models.UserModel.role == "customer").all()
+    # Fetch all users whose role is 'customer' or anyone who isn't staff
+    users = db.query(models.UserModel).filter(
+        (models.UserModel.role == "customer") | (models.UserModel.role == None)
+    ).all()
     
     customer_analytics = []
     for user in users:
-        orders = db.query(models.OrderModel).filter(models.OrderModel.customer_email == user.email).all()
+        # Safely fetch orders matching either user_id or customer_email
+        orders = []
+        try:
+            orders = db.query(models.OrderModel).filter(
+                (models.OrderModel.user_id == user.id) | (models.OrderModel.customer_email == user.email)
+            ).all()
+        except Exception:
+            # Fallback if user_id column doesn't exist on OrderModel yet
+            try:
+                orders = db.query(models.OrderModel).filter(models.OrderModel.customer_email == user.email).all()
+            except Exception:
+                orders = []
         
         total_orders = len(orders)
-        total_spent = sum(order.total_amount for order in orders)
+        total_spent = sum(float(getattr(order, "total_amount", 0) or getattr(order, "total", 0) or 0) for order in orders)
         latest_order = orders[-1] if orders else None
         
+        formatted_orders = []
+        for o in orders:
+            order_items = []
+            items_source = getattr(o, "items", []) or []
+            for item in items_source:
+                prod = getattr(item, "product", None)
+                order_items.append({
+                    "title": getattr(item, "product_title", None) or (prod.title if prod else "Product"),
+                    "quantity": int(getattr(item, "quantity", 1) or 1),
+                    "price": float(getattr(item, "price", 0.0) or 0.0),
+                    "image_url": getattr(item, "image_url", None) or (prod.image_url if prod else None)
+                })
+            
+            formatted_orders.append({
+                "id": o.id,
+                "status": getattr(o, "status", "Completed"),
+                "total_amount": float(getattr(o, "total_amount", 0) or getattr(o, "total", 0) or 0),
+                "items": order_items
+            })
+
         customer_analytics.append({
             "id": user.id,
             "email": user.email,
-            "role": user.role,
-            "first_name": user.first_name or (latest_order.first_name if latest_order else None),
-            "last_name": user.last_name or (latest_order.last_name if latest_order else None),
-            "phone": latest_order.phone if latest_order else None,
-            "address": latest_order.address if latest_order else None,
-            "city": latest_order.city if latest_order else None,
-            "country": latest_order.country if latest_order else None,
+            "role": user.role or "customer",
+            "first_name": getattr(user, "first_name", None) or (latest_order.first_name if latest_order else None) or "N/A",
+            "last_name": getattr(user, "last_name", None) or (latest_order.last_name if latest_order else None) or "N/A",
+            "phone": getattr(user, "phone", None) or (latest_order.phone if latest_order else None) or "No phone provided",
+            "address": getattr(user, "address", None) or (latest_order.address if latest_order else None) or "N/A",
+            "city": getattr(user, "city", None) or (latest_order.city if latest_order else None) or "N/A",
+            "country": getattr(user, "country", None) or (latest_order.country if latest_order else None) or "N/A",
             "total_orders": total_orders,
             "total_spent": total_spent,
-            "has_ordered_before": total_orders > 0
+            "orders": formatted_orders
         })
         
     return customer_analytics
 
-
+# UPDATE CUSTOMER PROFILE
 @router.put("/admin/customers/{customer_id}", response_model=schemas.UserResponse)
 def update_customer(
     customer_id: int,
-    user_update: schemas.UserUpdate,
+    user_update: dict,
     db: Session = Depends(get_db),
     current_user: models.UserModel = Depends(get_current_user)
 ):
@@ -195,18 +231,16 @@ def update_customer(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     
-    if user_update.first_name is not None:
-        customer.first_name = user_update.first_name
-    if user_update.last_name is not None:
-        customer.last_name = user_update.last_name
-    if user_update.email is not None:
-        customer.email = user_update.email
+    for key, value in user_update.items():
+        if hasattr(customer, key) and value is not None:
+            setattr(customer, key, value)
         
     db.commit()
     db.refresh(customer)
     return customer
 
 
+# DELETE CUSTOMER
 @router.delete("/admin/customers/{customer_id}")
 def delete_customer(
     customer_id: int,
@@ -223,3 +257,29 @@ def delete_customer(
     db.delete(customer)
     db.commit()
     return {"message": f"Customer #{customer_id} deleted successfully"}
+
+@router.patch("/me", response_model=schemas.UserResponse)
+def update_my_profile(
+    profile_update: schemas.UserProfileUpdate,
+    current_user: models.UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update logged-in customer's profile and default shipping address."""
+    if profile_update.first_name is not None:
+        current_user.first_name = profile_update.first_name
+    if profile_update.last_name is not None:
+        current_user.last_name = profile_update.last_name
+    if profile_update.phone is not None:
+        current_user.phone = profile_update.phone
+    if profile_update.address is not None:
+        current_user.address = profile_update.address
+    if profile_update.city is not None:
+        current_user.city = profile_update.city
+    if profile_update.postal_code is not None:
+        current_user.postal_code = profile_update.postal_code
+    if profile_update.country is not None:
+        current_user.country = profile_update.country
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user

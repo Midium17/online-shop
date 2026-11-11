@@ -10,12 +10,15 @@ class UserCreate(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    email: EmailStr
+    email: str
     role: str
-    first_name: Optional[str] = "N/A"
-    last_name: Optional[str] = "N/A"
-    total_orders: Optional[int] = 0
-    total_spent: Optional[float] = 0.0
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,6 +39,15 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     role: Optional[str] = None
 
+class UserProfileUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    
 
 # ==================== CATEGORY SCHEMAS ====================
 class CategoryBase(BaseModel):
@@ -92,6 +104,8 @@ class OrderCreate(BaseModel):
 class OrderItemResponse(BaseModel):
     id: int
     product_id: int
+    product_title: Optional[str] = None
+    title: Optional[str] = None
     quantity: int
     price: float
 

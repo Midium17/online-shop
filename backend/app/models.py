@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, Boolean, JSON
+from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, Boolean, JSON, DateTime
 from sqlalchemy.orm import relationship
 from app.database import Base
+from datetime import datetime
 import enum
 
 class UserRole(str, enum.Enum):
@@ -15,9 +16,14 @@ class UserModel(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(String, default=UserRole.CUSTOMER.value, nullable=False)
+    role = Column(String, default="customer")
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    postal_code = Column(String, nullable=True)
+    country = Column(String, nullable=True)
 
 class CategoryModel(Base):
     __tablename__ = "categories"
@@ -46,7 +52,8 @@ class OrderModel(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
-    customer_email = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # <--- Add this line
+    customer_email = Column(String, index=True)
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     phone = Column(String, nullable=True)
@@ -56,8 +63,9 @@ class OrderModel(Base):
     country = Column(String, nullable=True)
     total_amount = Column(Float, nullable=False)
     status = Column(String, default="Pending")
-
+    created_at = Column(DateTime, default=datetime.utcnow)
     items = relationship("OrderItemModel", back_populates="order", cascade="all, delete-orphan")
+    user = relationship("UserModel", backref="orders")
 
 class OrderItemModel(Base):
     __tablename__ = "order_items"
@@ -66,7 +74,8 @@ class OrderItemModel(Base):
     order_id = Column(Integer, ForeignKey("orders.id"))
     product_id = Column(Integer, ForeignKey("products.id"))
     quantity = Column(Integer, nullable=False)
-    price = Column(Float, nullable=False) # Price at time of purchase
+    price = Column(Float, nullable=False) 
+    product_title = Column(String, nullable=True)
 
     order = relationship("OrderModel", back_populates="items")
     product = relationship("ProductModel")
