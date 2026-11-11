@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
-import { CheckCircle, Lock, User, MapPin, Phone, Mail, Package } from 'lucide-react';
+import { CheckCircle, MapPin, Phone, Mail, Package, Sparkles } from 'lucide-react';
 
 export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
   const [formData, setFormData] = useState({
@@ -18,40 +18,65 @@ export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
   const [loading, setLoading] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [error, setError] = useState('');
+  const [autoFilled, setAutoFilled] = useState(false);
   const navigate = useNavigate();
 
-  // Auto-populate form when user profile data becomes available
+  // Populate from user profile OR fallback to latest past order
   useEffect(() => {
-    if (user) {
-      setFormData((prev) => ({
-        ...prev,
-        email: user.email || prev.email,
-        firstName: user.first_name && user.first_name !== 'N/A' ? user.first_name : prev.firstName,
-        lastName: user.last_name && user.last_name !== 'N/A' ? user.last_name : prev.lastName,
-        phone: user.phone && user.phone !== 'No phone provided' ? user.phone : prev.phone,
-        address: user.address && user.address !== 'N/A' ? user.address : prev.address,
-        city: user.city && user.city !== 'N/A' ? user.city : prev.city,
-        postalCode: user.postal_code || user.postalCode || prev.postalCode,
-        country: user.country && user.country !== 'N/A' ? user.country : prev.country,
-      }));
-    } else if (isAuthenticated) {
-      // Fallback: fetch profile directly if user prop isn't passed down yet
-      api.get('/auth/me')
-        .then((res) => {
-          const u = res.data;
-          setFormData((prev) => ({
-            ...prev,
-            email: u.email || prev.email,
-            firstName: u.first_name || prev.firstName,
-            lastName: u.last_name || prev.lastName,
-            phone: u.phone || prev.phone,
-            address: u.address || prev.address,
-            city: u.city || prev.city,
-            postalCode: u.postal_code || u.postalCode || prev.postalCode,
-            country: u.country || prev.country,
-          }));
-        })
-        .catch(() => {});
+    const loadCustomerDetails = async () => {
+      try {
+        let profile = user;
+
+        // 1. Fetch fresh user profile if not passed in props
+        if (!profile && isAuthenticated) {
+          const res = await api.get('/auth/me');
+          profile = res.data;
+        }
+
+        if (profile) {
+          let updatedForm = {
+            email: profile.email || '',
+            firstName: profile.first_name || '',
+            lastName: profile.last_name || '',
+            phone: profile.phone || '',
+            address: profile.address || '',
+            city: profile.city || '',
+            postalCode: profile.postal_code || profile.postalCode || '',
+            country: profile.country || '',
+          };
+
+          // 2. If address is still missing in profile, fetch latest order details
+          if (!updatedForm.address || !updatedForm.phone) {
+            try {
+              const ordersRes = await api.get('/orders/my-orders');
+              const pastOrders = Array.isArray(ordersRes.data) ? ordersRes.data : ordersRes.data?.items || [];
+              if (pastOrders.length > 0) {
+                const latest = pastOrders[0];
+                updatedForm.firstName = updatedForm.firstName || latest.first_name || '';
+                updatedForm.lastName = updatedForm.lastName || latest.last_name || '';
+                updatedForm.phone = updatedForm.phone || latest.phone || '';
+                updatedForm.address = updatedForm.address || latest.address || '';
+                updatedForm.city = updatedForm.city || latest.city || '';
+                updatedForm.postalCode = updatedForm.postalCode || latest.postal_code || '';
+                updatedForm.country = updatedForm.country || latest.country || '';
+              }
+            } catch (e) {
+              console.warn("Could not fetch previous order address fallback:", e);
+            }
+          }
+
+          setFormData(updatedForm);
+          if (updatedForm.address || updatedForm.email) {
+            setAutoFilled(true);
+          }
+        }
+      } catch (err) {
+        console.error("Error populating checkout customer info:", err);
+      }
+    };
+
+    if (isAuthenticated) {
+      loadCustomerDetails();
     }
   }, [user, isAuthenticated]);
 
@@ -97,9 +122,8 @@ export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
   // ORDER CONFIRMED STATE
   if (orderSuccess) {
     return (
-      <div className="max-w-xl mx-auto mt-12 bg-white p-8 rounded-2xl border shadow-sm text-center space-y-6">
-        <CheckCircle className="w-16 h-16 text-green-600 mx-auto" />
-        
+      <div className="max-w-xl mx-auto mt-12 bg-white p-8 rounded-2xl border shadow-xs text-center space-y-6">
+        <CheckCircle className="w-16 h-16 text-emerald-600 mx-auto" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Order Confirmed!</h1>
           <p className="text-gray-600 text-sm">
@@ -108,41 +132,40 @@ export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
           <p className="text-xs text-gray-500 mt-1">Order Reference ID: #{orderSuccess.id}</p>
         </div>
 
-        <div className="bg-gray-50 py-3 px-4 rounded-xl inline-block border">
+        <div className="bg-gray-50 py-3 px-4 rounded-xl inline-block border border-gray-100">
           <span className="text-sm text-gray-500 block">Total Amount Paid</span>
-          <span className="text-indigo-600 font-bold text-2xl">${orderSuccess.total_amount.toFixed(2)}</span>
+          <span className="text-emerald-700 font-bold text-2xl">${(orderSuccess.total_amount || total).toFixed(2)}</span>
         </div>
 
-        {/* ACCOUNT CREATION & LIVE TRACKING PROMPT */}
-        {!isAuthenticated ? (
+        {isAuthenticated ? (
+          <div className="pt-2">
+            <Link
+              to="/account"
+              className="block w-full bg-emerald-600 text-white py-3 rounded-xl font-medium hover:bg-emerald-700 transition text-sm"
+            >
+              View Order in My Account
+            </Link>
+          </div>
+        ) : (
           <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl text-left space-y-3">
             <div className="flex items-center gap-2 text-indigo-900 font-semibold">
               <Package className="w-5 h-5 text-indigo-600" />
               <h3>Want to track your order live?</h3>
             </div>
             <p className="text-xs text-indigo-700 leading-relaxed">
-              Create an account using <strong className="text-indigo-950">{orderSuccess.customer_email}</strong> to access live delivery status updates and order history.
+              Create an account using <strong className="text-indigo-950">{orderSuccess.customer_email}</strong> to access live delivery status updates and saved checkout details.
             </p>
             <Link
               to={`/register?email=${encodeURIComponent(orderSuccess.customer_email)}`}
-              className="block text-center bg-indigo-600 text-white py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition text-sm shadow-xs"
+              className="block text-center bg-indigo-600 text-white py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition text-sm"
             >
               Create Account & Track Order
-            </Link>
-          </div>
-        ) : (
-          <div className="pt-2">
-            <Link
-              to="/account"
-              className="block w-full bg-indigo-600 text-white py-3 rounded-xl font-medium hover:bg-indigo-700 transition text-sm"
-            >
-              View Order in My Account
             </Link>
           </div>
         )}
 
         <div>
-          <Link to="/" className="inline-block text-gray-500 font-medium hover:text-indigo-600 transition text-sm">
+          <Link to="/" className="inline-block text-gray-500 font-medium hover:text-emerald-600 transition text-sm">
             Continue Shopping
           </Link>
         </div>
@@ -150,18 +173,14 @@ export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
     );
   }
 
-  // CHECKOUT FORM STATE
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Checkout</h1>
 
-      {/* Sign-in prompt banner for guests */}
-      {!isAuthenticated && (
-        <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl mb-6 flex justify-between items-center text-sm">
-          <span className="text-indigo-900">Already have an account? Sign in for faster checkout.</span>
-          <Link to="/login" className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition">
-            Sign In
-          </Link>
+      {autoFilled && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl mb-6 text-xs font-semibold flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-emerald-600" />
+          Shipping details pre-filled from your saved account profile!
         </div>
       )}
 
@@ -172,12 +191,10 @@ export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Shipping & Contact Form */}
         <form onSubmit={handleSubmitOrder} className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Mail className="w-5 h-5 text-indigo-600" /> Contact Information
+              <Mail className="w-5 h-5 text-emerald-600" /> Contact Information
             </h2>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
@@ -188,7 +205,7 @@ export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="you@example.com"
-                className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
             <div>
@@ -202,42 +219,42 @@ export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
                   value={formData.phone}
                   onChange={handleChange}
                   placeholder="+1 (555) 000-0000"
-                  className="w-full pl-10 pr-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-10 pr-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs space-y-4">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-indigo-600" /> Shipping Address
+              <MapPin className="w-5 h-5 text-emerald-600" /> Shipping Address
             </h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                <input type="text" required name="firstName" value={formData.firstName} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input type="text" required name="firstName" value={formData.firstName} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                <input type="text" required name="lastName" value={formData.lastName} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input type="text" required name="lastName" value={formData.lastName} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
-              <input type="text" required name="address" value={formData.address} onChange={handleChange} placeholder="123 Main St" className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input type="text" required name="address" value={formData.address} onChange={handleChange} placeholder="123 Main St" className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                <input type="text" required name="city" value={formData.city} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input type="text" required name="city" value={formData.city} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
-                <input type="text" required name="postalCode" value={formData.postalCode} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input type="text" required name="postalCode" value={formData.postalCode} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                <input type="text" required name="country" value={formData.country} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input type="text" required name="country" value={formData.country} onChange={handleChange} className="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
             </div>
           </div>
@@ -245,14 +262,13 @@ export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
           <button
             type="submit"
             disabled={loading || cart.length === 0}
-            className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-medium hover:bg-indigo-700 transition shadow-sm"
+            className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-medium hover:bg-emerald-700 transition shadow-xs"
           >
             {loading ? 'Processing Order...' : `Pay $${total.toFixed(2)} & Place Order`}
           </button>
         </form>
 
-        {/* Order Summary Sidebar */}
-        <div className="bg-white p-6 rounded-2xl border shadow-sm h-fit space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xs h-fit space-y-4">
           <h2 className="text-lg font-semibold text-gray-900">Order Summary ({cart.reduce((a, c) => a + c.quantity, 0)})</h2>
           <div className="divide-y divide-gray-100 max-h-72 overflow-y-auto">
             {cart.map((item) => (
@@ -280,7 +296,6 @@ export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );
