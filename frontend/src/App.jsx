@@ -148,7 +148,7 @@ export default function App() {
             {/* Checkout & Customer Account Routes */}
             <Route
               path="/checkout"
-              element={<Checkout cart={cart} clearCart={clearCart} isAuthenticated={isAuthenticated} />}
+              element={<Checkout cart={cart} clearCart={clearCart} isAuthenticated={isAuthenticated} user={user} />}
             />
             <Route path="/register" element={<Register setIsAuthenticated={setIsAuthenticated} />} />
             <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />

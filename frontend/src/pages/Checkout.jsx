@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { CheckCircle, Lock, User, MapPin, Phone, Mail, Package } from 'lucide-react';
 
-export default function Checkout({ cart, clearCart, isAuthenticated }) {
+export default function Checkout({ cart, clearCart, isAuthenticated, user }) {
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -19,6 +19,41 @@ export default function Checkout({ cart, clearCart, isAuthenticated }) {
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  // Auto-populate form when user profile data becomes available
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        email: user.email || prev.email,
+        firstName: user.first_name && user.first_name !== 'N/A' ? user.first_name : prev.firstName,
+        lastName: user.last_name && user.last_name !== 'N/A' ? user.last_name : prev.lastName,
+        phone: user.phone && user.phone !== 'No phone provided' ? user.phone : prev.phone,
+        address: user.address && user.address !== 'N/A' ? user.address : prev.address,
+        city: user.city && user.city !== 'N/A' ? user.city : prev.city,
+        postalCode: user.postal_code || user.postalCode || prev.postalCode,
+        country: user.country && user.country !== 'N/A' ? user.country : prev.country,
+      }));
+    } else if (isAuthenticated) {
+      // Fallback: fetch profile directly if user prop isn't passed down yet
+      api.get('/auth/me')
+        .then((res) => {
+          const u = res.data;
+          setFormData((prev) => ({
+            ...prev,
+            email: u.email || prev.email,
+            firstName: u.first_name || prev.firstName,
+            lastName: u.last_name || prev.lastName,
+            phone: u.phone || prev.phone,
+            address: u.address || prev.address,
+            city: u.city || prev.city,
+            postalCode: u.postal_code || u.postalCode || prev.postalCode,
+            country: u.country || prev.country,
+          }));
+        })
+        .catch(() => {});
+    }
+  }, [user, isAuthenticated]);
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const shipping = 10.00;
