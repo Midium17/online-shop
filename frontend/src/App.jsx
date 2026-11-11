@@ -9,7 +9,43 @@ import Login from './pages/Login';
 import Checkout from './pages/Checkout';
 import Register from './pages/Register';
 import Account from './pages/Account';
-import ProtectedRoute from './components/ProtectedRoute'; // <-- Import the protection wrapper
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Error Boundary Component to prevent blank screen crashes
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center max-w-lg mx-auto my-12 bg-red-50 rounded-2xl border border-red-100 shadow-sm font-sans">
+          <h2 className="text-lg font-bold text-red-700">Something went wrong</h2>
+          <p className="text-xs text-red-600 mt-2 font-mono bg-red-100/50 p-3 rounded-xl overflow-x-auto text-left">
+            {this.state.error?.toString()}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-semibold hover:bg-red-700 transition"
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function App() {
   // Shopping Cart Persistence
@@ -93,38 +129,40 @@ export default function App() {
           user={user}
           handleLogout={handleLogout}
         />
-        <Routes>
-          {/* Public Storefront & Cart */}
-          <Route path="/" element={<Storefront addToCart={addToCart} />} />
-          <Route
-            path="/cart"
-            element={
-              <Cart
-                cart={cart}
-                updateQuantity={updateQuantity}
-                removeFromCart={removeFromCart}
-                clearCart={clearCart}
-              />
-            }
-          />
+        <ErrorBoundary>
+          <Routes>
+            {/* Public Storefront & Cart */}
+            <Route path="/" element={<Storefront addToCart={addToCart} />} />
+            <Route
+              path="/cart"
+              element={
+                <Cart
+                  cart={cart}
+                  updateQuantity={updateQuantity}
+                  removeFromCart={removeFromCart}
+                  clearCart={clearCart}
+                />
+              }
+            />
 
-          {/* Checkout & Customer Account Routes */}
-          <Route
-            path="/checkout"
-            element={<Checkout cart={cart} clearCart={clearCart} isAuthenticated={isAuthenticated} />}
-          />
-          <Route path="/register" element={<Register setIsAuthenticated={setIsAuthenticated} />} />
-          <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
-          <Route
-            path="/account"
-            element={isAuthenticated ? <Account /> : <Navigate to="/login" replace />}
-          />
+            {/* Checkout & Customer Account Routes */}
+            <Route
+              path="/checkout"
+              element={<Checkout cart={cart} clearCart={clearCart} isAuthenticated={isAuthenticated} />}
+            />
+            <Route path="/register" element={<Register setIsAuthenticated={setIsAuthenticated} />} />
+            <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
+            <Route
+              path="/account"
+              element={isAuthenticated ? <Account /> : <Navigate to="/login" replace />}
+            />
 
-          {/* Protected Admin/Manager Route using ProtectedRoute wrapper */}
-          <Route element={<ProtectedRoute allowedRoles={['admin', 'inventory_manager', 'order_manager']} />}>
-            <Route path="/admin" element={<Admin />} />
-          </Route>
-        </Routes>
+            {/* Protected Admin/Manager Route using ProtectedRoute wrapper */}
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'inventory_manager', 'order_manager']} />}>
+              <Route path="/admin" element={<Admin userRole={user?.role || localStorage.getItem('user_role') || 'admin'} />} />
+            </Route>
+          </Routes>
+        </ErrorBoundary>
       </div>
     </Router>
   );

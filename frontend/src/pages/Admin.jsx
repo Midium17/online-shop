@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { hasPermission } from '../utils/permissions';
 import DashboardTab from '../components/admin/DashboardTab';
@@ -57,47 +57,76 @@ export default function Admin() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(true);
   const userRole = localStorage.getItem('user_role') || 'customer';
+
+
+const safeHasPermission = (role, permission) => {
+    if (!role) return false;
+    if (typeof hasPermission === 'function') {
+      try {
+        return hasPermission(role, permission);
+      } catch (e) {
+        return false;
+      }
+    }
+    // Fallback basic check if custom helper isn't imported
+    return role === 'admin' || role === 'manager';
+  };
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const currentRole = userRole || 'admin';
+
+      const [prodRes, catRes, ordRes, custRes, userRes] = await Promise.all([
+        safeHasPermission(currentRole, 'inventory:read')
+          ? api.get('/products/').catch(() => ({ data: [] }))
+          : Promise.resolve({ data: [] }),
+
+        safeHasPermission(currentRole, 'category:manage') || safeHasPermission(currentRole, 'inventory:read')
+          ? api.get('/categories/').catch(() => ({ data: [] }))
+          : Promise.resolve({ data: [] }),
+
+        safeHasPermission(currentRole, 'orders:read')
+          ? api.get('/orders/').catch(() => ({ data: [] }))
+          : Promise.resolve({ data: [] }),
+
+        safeHasPermission(currentRole, 'customers:read')
+          ? api.get('/auth/admin/customers/').catch(() => ({ data: [] }))
+          : Promise.resolve({ data: [] }),
+
+        currentRole === 'admin'
+          ? api.get('/auth/admin/users/').catch(() => ({ data: [] }))
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      setProducts(Array.isArray(prodRes.data) ? prodRes.data : prodRes.data?.items || []);
+      setCategories(Array.isArray(catRes.data) ? catRes.data : catRes.data?.items || []);
+      setOrders(Array.isArray(ordRes.data) ? ordRes.data : ordRes.data?.items || []);
+      setCustomers(Array.isArray(custRes.data) ? custRes.data : custRes.data?.items || []);
+      setUsers(Array.isArray(userRes.data) ? userRes.data : userRes.data?.items || []);
+
+      setError('');
+    } catch (err) {
+      console.error("Fetch Data Error:", err);
+      setError('Failed to load admin data.');
+    } finally {
+      setLoading(false);
+    }
+  }, [userRole]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
-  const fetchData = async () => {
-  try {
-    const [prodRes, catRes, ordRes, custRes, userRes] = await Promise.all([
-      hasPermission(userRole, 'inventory:read')
-        ? api.get('/products/').catch(() => ({ data: [] }))
-        : Promise.resolve({ data: [] }),
-      
-      hasPermission(userRole, 'category:manage') || hasPermission(userRole, 'inventory:read')
-        ? api.get('/categories/').catch(() => ({ data: [] }))
-        : Promise.resolve({ data: [] }),
-      
-      hasPermission(userRole, 'orders:read')
-        ? api.get('/orders/').catch(() => ({ data: [] }))
-        : Promise.resolve({ data: [] }),
-      
-      hasPermission(userRole, 'customers:read')
-        ? api.get('/auth/admin/customers').catch(() => ({ data: [] }))
-        : Promise.resolve({ data: [] }),
-      
-      userRole === 'admin'
-        ? api.get('/auth/admin/users').catch(() => ({ data: [] }))
-        : Promise.resolve({ data: [] }),
-    ]);
-
-    setProducts(prodRes.data);
-    setCategories(catRes.data);
-    setOrders(ordRes.data);
-    setCustomers(custRes.data);
-    setUsers(userRes.data);
-    setError(''); // Clear error if requests succeeded
-  } catch (err) {
-    console.error("Fetch Data Error:", err);
-    setError('Failed to load admin data. Ensure you have proper permissions.');
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-gray-500 font-semibold text-sm">
+        Loading Admin Dashboard...
+      </div>
+    );
   }
-};
 
   // Metrics Calculations
   const totalSales = orders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
@@ -503,7 +532,11 @@ export default function Admin() {
 
         {/* TAB 6: CUSTOMERS DIRECTORY */}
         {activeTab === 'customers' && hasPermission(userRole, 'customers:read') && (
-          <CustomersTab customers={customers} />
+          <CustomersTab 
+          customers={customers} 
+          fetchData={fetchData} 
+          setError={setError} 
+          setSuccess={setSuccess} />
         )}
 
         {/* TAB 7: USERS & ROLES MANAGEMENT */}
