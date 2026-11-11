@@ -154,7 +154,7 @@ export default function App() {
             <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
             <Route
               path="/account"
-              element={isAuthenticated ? <Account /> : <Navigate to="/login" replace />}
+              element={isAuthenticated ? <Account addToCart={addToCart}/> : <Navigate to="/login" replace />}
             />
 
             {/* Protected Admin/Manager Route using ProtectedRoute wrapper */}
